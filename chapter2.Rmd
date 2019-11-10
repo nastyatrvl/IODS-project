@@ -1,7 +1,94 @@
-# Insert chapter 2 title here
+# Linear regression analysis
 
-*Describe the work you have done this week and summarize your learning.*
+First, let's download the data, which represents the relationship between learning approaches and students' achievements. It consists of 166 observations of 7 variables. Columns' description:
 
-- Describe your work and results clearly. 
-- Assume the reader has an introductory course level understanding of writing and reading R code as well as statistical methods.
-- Assume the reader has no previous knowledge of your data or the more advanced methods you are using.
+* Gender: dichotomous variable (male or female)
+* Age: represented in years, derived from the date of birth
+* Attitude: Global attitude toward statistics
+* Deep: stands for deep learning approach (intention to maximize understanding, with a true commitment to learning), derived from the corresponding survey questions
+* Stra: stands for strategic learning approach (applying any strategies to maximize the chance of achieving the highest possible grades), derived from the corresponding survey questions
+* Surf: stands for surface learning approach (memorizing without understanding, with a serious lack of personal engagement in the learning process), derived from the corresponding survey questions
+* Points: exam points
+
+
+```{r}
+learning2014 <- read.csv("/Users/anastasia/IODS-project/data/learning2014.csv")
+dim(learning2014)
+str(learning2014)
+```
+
+Now we can conduct a graphical analysis:    
+```{r, echo=TRUE}
+library(GGally)
+library(ggplot2)
+
+# creates pairs plot
+p <- ggpairs(learning2014, mapping = aes(col = gender, alpha = 0.3), lower = list(combo = wrap("facethist", bins = 20)))
+p    
+```
+   
+The very first line of the pairs plot above shows the histogram of gender distribution (dichotomous variable) and genderwise box plots where the ends of the box are the upper and lower quartiles, and the median is marked by a vertical line inside the box. The first column shows genderwise distributions of "age", "attitude", "deep", "stra", "surf" and "points". Pink color refers to females, blue to males.  
+  From the rest of the plot we can see:
+  
+* on the diagonal the distributions of all the continuous variables in our scope
+* on the upper triangle genderwise correlation coefficients
+* on the lower triangle scatter plots which show relationships between two variables  
+
+ The highest correlation coefficients are observed between:
+ 
+* "points" and "attitude" (0.422 for females, 0.451 for males)
+* "points" and "stra" (0.187 for females, 0.118 for males)
+* "points" and "surf" (-0.128 for females, -0.149 for males)
+* "surf" and "age" (-0.148 for females, -0.107 for males)
+* "stra" and "surf" (-0.156 for females, -0.217 for males)  
+
+ Gender distribution is imbalanced: twice more females than males. Age distribution is severely skewed towards young ages. The rest of distributions are also skewed, but not severely, and mostly have two picks.  
+ Now we conduct the linear regression analysis, where "points" is a dependent variable, and explanatory variables are represented by "attitude", "stra" and "surf" -- which have the highest correlation with our target. 
+```{r}
+# creates a regression model with multiple explanatory variables
+
+my_model <- lm(points ~ attitude + stra + surf, data = learning2014)
+
+# prints a summary of the model
+summary(my_model)
+```
+The summary of the model suggests the following interpretation:
+
+* One unit increase in **attitude** variable provides **3.4** units increase in points. The higher student's attitude towards statistics, the higher grade he gains on the exam. Positive attitude is important for achievement. 
+* One unit increase in **strategic learning approach** increases points by **0.9** units. 
+* One unit increase in **surface learning approach** decreases points by **0.6** units.
+
+However, p-values suggest that only "attitude" is significant in the model on 5% significance level. 
+If you are not familiar with the p-values, they are used to determine statistical significance in a hypothesis test (in our case, if coefficients of linear regression are zero):
+
+* High P values: our data are likely with a true null.
+* Low P values: our data are unlikely with a true null.
+
+where true null stands for the situation when corresponding coefficient is zero (zero influence on "points").  
+ We fit another model without a "surf" variable:
+```{r}
+# creates a regression model with multiple explanatory variables
+my_model2 <- lm(points ~ attitude + stra, data = learning2014)
+
+# prints a summary of the model
+summary(my_model2)
+```
+Now both variables are significant on 1% significance level (p-values are less than 0.1).
+The new interpretation:
+
+* One unit increase in **attitude** variable provides **3.5** units increase in points. The higher student's attitude towards statistics, the higher grade he gains on the exam. Positive attitude is important for achievement. 
+* One unit increase in **strategic learning approach** increases points by **0.9** units. 
+The model explains 20% of variance in the data, since $R^2 = 0.2$.
+
+
+```{r, echo=TRUE}
+# set plots' locations
+par(mfrow = c(2,2))
+# creates diagnostic plots
+plot(my_model, which=c(1, 2, 5))
+```
+
+The **scatter plot of residuals vs fitted** (top-left) illustrates that residuals are equally distributed around zero. Thus, the assumption of homoscedasticity is held: the variance around the regression line is the same for all values of the predictor variable "points". **Q-Q plot of the model residuals** (top-right) provides a method to check if the normality of errors assumption (underlying the linear regression) is held. In our case it shows a very reasonable fit. The **scatter plot of residuals vs leverage** (bottom-left) illustrates the impact single observations have on the model. It's clearly visible that there are 3 outliers: 35, 77 and 145. However, they don't severely influence the regression line. We can conclude that our linear model fits the standards. 
+
+
+
