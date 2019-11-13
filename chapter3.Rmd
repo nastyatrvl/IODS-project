@@ -1,0 +1,95 @@
+---
+title: "Logistic regression"
+output: html_document
+---
+The following chapter analyses alcohol consumption of students of two Portuguese schools. The data attributes include student grades, demographic, social and school related features, and it was collected by using school reports and questionnaires. The variables' names can be found below and their detailed description [here](https://archive.ics.uci.edu/ml/datasets/Student+Performance).The purpose of current analysis is to study the relationships between high/low alcohol consumption and some of the other variables in the data. 
+
+
+```{r}
+alc <- read.csv("/Users/anastasia/IODS-project/data/alc.csv")
+dim(alc)
+colnames(alc)
+str(alc)
+```
+For selecting some interesting analysis for future analysis it's helpful to first visualize them.
+
+```{r, echo=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+gather(alc) %>% ggplot(aes(value)) + facet_wrap("key", scales = "free") + geom_bar()
+```
+
+```{r}
+library(corrr)
+alc %>% select_if(is.numeric) %>% correlate() %>% focus(alc_use, Dalc, Walc)
+```
+
+## Hypothesis testing 
+
+Based on computed correlation coefficients and my personal reasoning I come up with the **following hypothesis**:
+
+1. Male schoolers consume more alcohol that female (sex)
+2. Alcohol consumption decreases grades (in fact it's three variables: G1, G2, G3)
+3. Alcohol consumption increases number of school absences (absences)
+4. Going out with friends increases alcohol consumption (goout)
+
+Now I'm going to visualize it one by one.There are 198 females and 184 males in our dataset, so it's quite balanced. The following graphs suggest that **in general female schoolers consume more alcohol than males**, but **when it comes to high alcohol consumption ($\geq 3$), males take the lead**. So my hypothesis is only partially true. 
+```{r, echo=FALSE}
+library(ggplot2)
+g1 <- ggplot(data = alc, aes(x = alc_use, fill = sex))
+g1 + geom_bar()
+g2 <- ggplot(data = alc, aes(x = Dalc, fill = sex))
+g2 + geom_bar()
+g3 <- ggplot(data = alc, aes(x = Walc, fill = sex))
+g3 + geom_bar()
+```
+
+Next we explore relationship between alcohol use and grades. First, I compute mean grade (average of G1, G2, G3).
+```{r}
+alc$G <- (alc$G1 + alc$G2 + alc$G3)/3
+```
+
+Now I plot the relationship. The overall trend supports my hypothesis about negative relationship between alcohol use and grades.
+
+```{r, echo=FALSE}
+g4 <- ggplot(alc, aes(x = alc_use, y = G, group = alc_use))
+g4 + geom_boxplot() + ylab("grade")
+
+g5 <- ggplot(alc, aes(x = Dalc, y = G, group = Dalc))
+g5 + geom_boxplot() + ylab("grade")
+
+g6 <- ggplot(alc, aes(x = Walc, y = G, group = Walc))
+g6 + geom_boxplot() + ylab("grade")
+```
+
+I do the same for absences. The overall trend again proves my hypothesis: the higher alcohol consumption, the more absences. 
+
+```{r, echo=FALSE}
+g7 <- ggplot(alc, aes(x = alc_use, y = absences, group = alc_use))
+g7 + geom_boxplot() 
+
+g8 <- ggplot(alc, aes(x = Dalc, y = absences, group = Dalc))
+g8 + geom_boxplot() 
+
+g9 <- ggplot(alc, aes(x = Walc, y = absences, group = Walc))
+g9 + geom_boxplot() 
+```
+
+Here it's clearly seen how going out with friends increases alcohol consumption. 
+
+```{r, echo=FALSE}
+g10 <- ggplot(alc, aes(x = goout, y = alc_use, group = goout))
+g10 + geom_boxplot() 
+
+g11 <- ggplot(alc, aes(x = goout, y = Dalc, group = goout))
+g11 + geom_boxplot() 
+
+g12 <- ggplot(alc, aes(x = goout, y = Walc, group = goout))
+g12 + geom_boxplot() 
+```
+
+## Building logistic regression model
+
+
+
