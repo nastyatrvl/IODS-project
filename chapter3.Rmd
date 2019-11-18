@@ -1,7 +1,8 @@
 ---
-title: "Logistic regression"
 output: html_document
 ---
+# Logistic regression
+## Chapter description
 The following chapter analyses alcohol consumption of students of two Portuguese schools. The data attributes include student grades, demographic, social and school related features, and it was collected by using school reports and questionnaires. The variables' names can be found below and their detailed description [here](https://archive.ics.uci.edu/ml/datasets/Student+Performance).The purpose of current analysis is to study the relationships between high/low alcohol consumption and some of the other variables in the data. 
 
 
@@ -11,7 +12,9 @@ dim(alc)
 colnames(alc)
 str(alc)
 ```
-For selecting some interesting analysis for future analysis it's helpful to first visualize them.
+
+## Exploratory data analysis
+For selecting some interesting variables for future analysis it's helpful to first visualize them.
 
 ```{r, echo=FALSE}
 library(tidyr)
@@ -34,7 +37,7 @@ Based on computed correlation coefficients and my personal reasoning I come up w
 3. Alcohol consumption increases number of school absences (absences)
 4. Going out with friends increases alcohol consumption (goout)
 
-Now I'm going to visualize it one by one.There are 198 females and 184 males in our dataset, so it's quite balanced. The following graphs suggest that **in general female schoolers consume more alcohol than males**, but **when it comes to high alcohol consumption ($\geq 3$), males take the lead**. So my hypothesis is only partially true. 
+Now I'm going to visualize them one by one.There are 198 females and 184 males in our dataset, so it's quite balanced. The following graphs suggest that **in general female schoolers consume more alcohol than males**, but **when it comes to high alcohol consumption ($\geq 3$), males take the lead**. So my hypothesis is only partially true.  
 ```{r, echo=FALSE}
 library(ggplot2)
 g1 <- ggplot(data = alc, aes(x = alc_use, fill = sex))
@@ -44,8 +47,8 @@ g2 + geom_bar()
 g3 <- ggplot(data = alc, aes(x = Walc, fill = sex))
 g3 + geom_bar()
 ```
-
-Next we explore relationship between alcohol use and grades. First, I compute mean grade (average of G1, G2, G3).
+     
+ Next we explore relationship between alcohol use and grades. First, I compute mean grade (average of G1, G2, G3).
 ```{r}
 alc$G <- (alc$G1 + alc$G2 + alc$G3)/3
 ```
@@ -62,8 +65,8 @@ g5 + geom_boxplot() + ylab("grade")
 g6 <- ggplot(alc, aes(x = Walc, y = G, group = Walc))
 g6 + geom_boxplot() + ylab("grade")
 ```
-
-I do the same for absences. The overall trend again proves my hypothesis: the higher alcohol consumption, the more absences. 
+    
+ I do the same for absences. The overall trend again proves my hypothesis: the higher alcohol consumption, the more absences. 
 
 ```{r, echo=FALSE}
 g7 <- ggplot(alc, aes(x = alc_use, y = absences, group = alc_use))
@@ -75,8 +78,8 @@ g8 + geom_boxplot()
 g9 <- ggplot(alc, aes(x = Walc, y = absences, group = Walc))
 g9 + geom_boxplot() 
 ```
-
-Here it's clearly seen how going out with friends increases alcohol consumption. 
+     
+ Here it's clearly seen how going out with friends increases alcohol consumption. 
 
 ```{r, echo=FALSE}
 g10 <- ggplot(alc, aes(x = goout, y = alc_use, group = goout))
@@ -90,6 +93,313 @@ g12 + geom_boxplot()
 ```
 
 ## Building logistic regression model
+I built a logistic regression model with the binary high/low alcohol consumption variable as the target and the following explanatory variables:
 
+* sex
+* G
+* absences
+* goout
+
+This fitted model says that, holding G, absences and goout at a fixed value, the odds of high alcohol consumption for males (male  = 1) over the odds of getting into an honors class for females (female = 0) is exp(0.98033) = 2.593.  In other words, **high alcohol consumption is 2.6 times more probable for males than for females**.  The coefficient for G says that, holding sex, absences and goout at a fixed value, we will see a **5% decrease in the odds of high alcohol consumption for a one-unit increase in grades** (G) since exp(-0.05877) = 0.943. Holding sex, G and goout at a fixed value, we will see an **8% decrease in the odds of high alcohol consumption for a one-unit increase in absences** since exp(0.08105) = 1.084. Holding sex, G and absences at a fixed value, we will see an **103% decrease in the odds of high alcohol consumption for a one-unit increase in goout** since exp(0.70547) = 2.025. 
+
+
+```{r}
+my_model <- glm(high_use ~ sex + G + absences + goout, data = alc, family = "binomial")
+summary(my_model)
+coef(my_model)
+```
+
+```{r}
+odds <- coef(my_model) %>% exp
+ci <- confint(my_model) %>% exp
+cbind(odds, ci)
+```
+From both p-values of my regression model and confidence intervals for odds ratios it is obvious that variable G is not statistically significant (p-value = 0.2 and **confidence interval includes zero**).
+
+## Predictive power
+
+Firstly, I remove redundant G variable from my model.
+```{r}
+my_model_new <- glm(high_use ~ sex + absences + goout, data = alc, family = "binomial")
+summary(my_model_new)
+```
+
+Cross tabulation of predictions versus the actual values:
+```{r}
+probabilities <- predict(my_model_new, type = "response")
+alc <- mutate(alc, probability = probabilities)
+alc <- mutate(alc, prediction = probability > 0.5)
+select(alc, sex, G, absences, goout, high_use, probability, prediction) %>% tail(10)
+table(high_use = alc$high_use, prediction = alc$prediction)
+```
+As it can be seen from the table, my model correctly classified $253+49=302$ observations and failed with $65+15= 80$ observations. That means **the train error is 0.21**.
+
+```{r}
+g <- ggplot(alc, aes(x = probability, y = high_use, col = prediction))
+g + geom_point()
+table(high_use = alc$high_use, prediction = alc$prediction) %>% prop.table() %>% addmargins()
+```
+
+Again the average number of incorrectly classified observations (train error).
+
+```{r}
+loss_func <- function(class, prob) {
+  n_wrong <- abs(class - prob) > 0.5
+  mean(n_wrong)
+}
+loss_func(class = alc$high_use, prob = alc$probability)
+```
+
+## Cross-validation
+
+```{r}
+library(boot)
+set.seed(12345)
+cv <- cv.glm(data = alc, cost = loss_func, glmfit = my_model, K = 10)
+cv$delta[1]
+```
+
+**My model has better test set performance compared to that introduced in DataCamp (0.21 < 0.26)**.
+
+## Comparative analysis of different models
+
+```{r}
+model1 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + internet + guardian + traveltime + studytime + failures + schoolsup + famsup + paid + activities + higher + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model1)
+```
+
+I'll first exclude 'higher' variable since it has the highest p-value.
+
+```{r}
+model2 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + guardian + traveltime + studytime + failures + schoolsup + famsup + paid + activities + internet + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model2)
+```
+Next, I exclude 'internet'.
+```{r}
+model3 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + guardian + traveltime + studytime + failures + schoolsup + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model3)
+```
+
+Exclude 'schoolsup'.
+
+```{r}
+model4 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + guardian + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model4)
+```
+
+Exclude 'reason'.
+
+```{r}
+model5 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + nursery + guardian + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model5)
+```
+
+Exclude 'Medu'.
+
+```{r}
+model6 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + Fjob + nursery + guardian + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model6)
+```
+
+Exclude 'guardian'.
+
+```{r}
+model7 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + Fjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model7)
+```
+
+Exclude 'Fjob'.
+
+```{r}
+model8 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
+summary(model8)
+```
+
+Exclude G. 
+```{r}
+model9 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
+summary(model9)
+```
+
+Exclude P-status.
+
+```{r}
+model10 <- glm(high_use ~ school + sex + age + address + famsize  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
+summary(model10)
+```
+
+Exclude 'school'.
+```{r}
+model11 <- glm(high_use ~ sex + age + address + famsize  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
+summary(model11)
+```
+
+Exclude 'Mjob'.
+```{r}
+model12 <- glm(high_use ~ sex + age + address + famsize  + Fedu + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
+summary(model12)
+```
+
+Exclude 'age'.
+
+```{r}
+model13 <- glm(high_use ~ sex + address + famsize  + Fedu + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
+summary(model13)
+```
+
+Exclude 'famsup'.
+```{r}
+model14 <- glm(high_use ~ sex + address + famsize  + Fedu + nursery + traveltime + studytime + failures + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
+summary(model14)
+```
+
+Exclude 'freetime'.
+
+```{r}
+model15 <- glm(high_use ~ sex + address + famsize  + Fedu + nursery + traveltime + studytime + failures + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
+summary(model15)
+```
+
+Exclude 'Fedu'.
+
+```{r}
+model16 <- glm(high_use ~ sex + address + famsize + nursery + traveltime + studytime + failures + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
+summary(model16)
+```
+
+Exclude 'failures'.
+
+```{r}
+model17 <- glm(high_use ~ sex + address + famsize + nursery + traveltime + studytime + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
+summary(model17)
+```
+
+Exclude 'famsize'.
+
+```{r}
+model18 <- glm(high_use ~ sex + address + nursery + traveltime + studytime + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
+summary(model18)
+```
+
+Exclude 'romantic'.
+```{r}
+model18 <- glm(high_use ~ sex + address + nursery + traveltime + studytime + paid + activities + famrel + goout + health + absences, data = alc, family = "binomial")
+summary(model18)
+```
+
+Exclude 'nursery'.
+```{r}
+model19 <- glm(high_use ~ sex + address + traveltime + studytime + paid + activities + famrel + goout + health + absences, data = alc, family = "binomial")
+summary(model19)
+```
+Exclude 'traveltime'.
+```{r}
+model20 <- glm(high_use ~ sex + address + studytime + paid + activities + famrel + goout + health + absences, data = alc, family = "binomial")
+summary(model20)
+```
+
+Exclude 'health'.
+```{r}
+model21 <- glm(high_use ~ sex + address + studytime + paid + activities + famrel + goout + absences, data = alc, family = "binomial")
+summary(model21)
+```
+Now all the variables in my model are statistically significant. 
+Let's calculate test errors using cross validation.
+```{r}
+set.seed(12345)
+cv1 <- cv.glm(data = alc, cost = loss_func, glmfit = model1, K = 10)
+cv2 <- cv.glm(data = alc, cost = loss_func, glmfit = model2, K = 10)
+cv3 <- cv.glm(data = alc, cost = loss_func, glmfit = model3, K = 10)
+cv4 <- cv.glm(data = alc, cost = loss_func, glmfit = model4, K = 10)
+cv5 <- cv.glm(data = alc, cost = loss_func, glmfit = model5, K = 10)
+cv6 <- cv.glm(data = alc, cost = loss_func, glmfit = model6, K = 10)
+cv7 <- cv.glm(data = alc, cost = loss_func, glmfit = model7, K = 10)
+cv8 <- cv.glm(data = alc, cost = loss_func, glmfit = model8, K = 10)
+cv9 <- cv.glm(data = alc, cost = loss_func, glmfit = model9, K = 10)
+cv10 <- cv.glm(data = alc, cost = loss_func, glmfit = model10, K = 10)
+cv11 <- cv.glm(data = alc, cost = loss_func, glmfit = model11, K = 10)
+cv12 <- cv.glm(data = alc, cost = loss_func, glmfit = model12, K = 10)
+cv13 <- cv.glm(data = alc, cost = loss_func, glmfit = model13, K = 10)
+cv14 <- cv.glm(data = alc, cost = loss_func, glmfit = model14, K = 10)
+cv15 <- cv.glm(data = alc, cost = loss_func, glmfit = model15, K = 10)
+cv16 <- cv.glm(data = alc, cost = loss_func, glmfit = model16, K = 10)
+cv17 <- cv.glm(data = alc, cost = loss_func, glmfit = model17, K = 10)
+cv18 <- cv.glm(data = alc, cost = loss_func, glmfit = model18, K = 10)
+cv18 <- cv.glm(data = alc, cost = loss_func, glmfit = model18, K = 10)
+cv19 <- cv.glm(data = alc, cost = loss_func, glmfit = model19, K = 10)
+cv20 <- cv.glm(data = alc, cost = loss_func, glmfit = model20, K = 10)
+cv21 <- cv.glm(data = alc, cost = loss_func, glmfit = model21, K = 10)
+
+test_errors <- c(cv1$delta[1], cv2$delta[1], cv3$delta[1], cv4$delta[1], cv5$delta[1], cv6$delta[1], cv7$delta[1], cv8$delta[1], cv9$delta[1], cv10$delta[1], cv11$delta[1], cv12$delta[1], cv13$delta[1], cv14$delta[1], cv15$delta[1], cv16$delta[1], cv17$delta[1], cv18$delta[1], cv19$delta[1], cv20$delta[1], cv21$delta[1])
+```
+
+And also train errors.
+```{r}
+probabilities1 <- predict(model1, type = "response")
+probability1 <- probabilities1 > 0.5
+probabilities2 <- predict(model2, type = "response")
+probabilities3 <- predict(model3, type = "response")
+probabilities4 <- predict(model4, type = "response")
+probabilities5 <- predict(model5, type = "response")
+probabilities6 <- predict(model6, type = "response")
+probabilities7 <- predict(model7, type = "response")
+probabilities8 <- predict(model8, type = "response")
+probabilities9 <- predict(model9, type = "response")
+probabilities10 <- predict(model10, type = "response")
+probabilities11 <- predict(model11, type = "response")
+probabilities12 <- predict(model12, type = "response")
+probabilities13 <- predict(model13, type = "response")
+probabilities14 <- predict(model14, type = "response")
+probabilities15 <- predict(model15, type = "response")
+probabilities16 <- predict(model16, type = "response")
+probabilities17 <- predict(model17, type = "response")
+probabilities18 <- predict(model18, type = "response")
+probabilities19 <- predict(model19, type = "response")
+probabilities20 <- predict(model20, type = "response")
+probabilities21 <- predict(model21, type = "response")
+```
+
+```{r}
+loss1 <- loss_func(class = alc$high_use, prob = probabilities1)
+loss2 <- loss_func(class = alc$high_use, prob = probabilities2)
+loss3 <- loss_func(class = alc$high_use, prob = probabilities3)
+loss4 <- loss_func(class = alc$high_use, prob = probabilities4)
+loss5 <- loss_func(class = alc$high_use, prob = probabilities5)
+loss6 <- loss_func(class = alc$high_use, prob = probabilities6)
+loss7 <- loss_func(class = alc$high_use, prob = probabilities7)
+loss8 <- loss_func(class = alc$high_use, prob = probabilities8)
+loss9 <- loss_func(class = alc$high_use, prob = probabilities9)
+loss10 <- loss_func(class = alc$high_use, prob = probabilities10)
+loss11 <- loss_func(class = alc$high_use, prob = probabilities11)
+loss12 <- loss_func(class = alc$high_use, prob = probabilities12)
+loss13 <- loss_func(class = alc$high_use, prob = probabilities13)
+loss14 <- loss_func(class = alc$high_use, prob = probabilities14)
+loss15 <- loss_func(class = alc$high_use, prob = probabilities15)
+loss16 <- loss_func(class = alc$high_use, prob = probabilities16)
+loss17 <- loss_func(class = alc$high_use, prob = probabilities17)
+loss18 <- loss_func(class = alc$high_use, prob = probabilities18)
+loss19 <- loss_func(class = alc$high_use, prob = probabilities19)
+loss20 <- loss_func(class = alc$high_use, prob = probabilities20)
+loss21 <- loss_func(class = alc$high_use, prob = probabilities21)
+
+train_errors <- c(loss1, loss2, loss3, loss4, loss5, loss6, loss7, loss8, loss9, loss10, loss11, loss12, loss13, loss14, loss15, loss16, loss17, loss18, loss19, loss20, loss21)
+```
+
+```{r}
+vars <- seq(from = 1, to = 21)
+rates <- seq(from = 15, to = 25)
+```
+
+Finally, let's plot it. Train errors are in red, and test errors are in blue. It's clearly seen, that since **the number of explanatory variables in a model decreases**, **train error decreases** (since at the beginning there were too many redundant variables) and test error is more or less the same here. In general, the more variables, the lower train error and the higher test error due to overfitting.
+
+```{r}
+errors <- data_frame(train_errors, test_errors)
+p = ggplot() + 
+  geom_line(data = errors, aes(x=vars, y = train_errors), color = "blue") + 
+  geom_line(data = errors, aes(x=vars, y = test_errors), color = "red") +
+  xlab('Models') +
+  ylab('Error rates')
+p
+```
 
 
