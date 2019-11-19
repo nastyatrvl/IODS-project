@@ -114,7 +114,7 @@ odds <- coef(my_model) %>% exp
 ci <- confint(my_model) %>% exp
 cbind(odds, ci)
 ```
-From both p-values of my regression model and confidence intervals for odds ratios it is obvious that variable G is not statistically significant (p-value = 0.2 and **confidence interval includes zero**).
+From both p-values of my regression model and confidence intervals for odds ratios it is obvious that variable G is not statistically significant (p-value = 0.2 and **confidence interval includes one**).
 
 ## Predictive power
 
