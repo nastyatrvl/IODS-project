@@ -165,143 +165,143 @@ cv$delta[1]
 
 ```{r}
 model1 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + internet + guardian + traveltime + studytime + failures + schoolsup + famsup + paid + activities + higher + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model1)
+# summary(model1)
 ```
 
 I'll first exclude 'higher' variable since it has the highest p-value.
 
 ```{r}
 model2 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + guardian + traveltime + studytime + failures + schoolsup + famsup + paid + activities + internet + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model2)
+# summary(model2)
 ```
 Next, I exclude 'internet'.
 ```{r}
 model3 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + guardian + traveltime + studytime + failures + schoolsup + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model3)
+# summary(model3)
 ```
 
 Exclude 'schoolsup'.
 
 ```{r}
 model4 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + reason + nursery + guardian + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model4)
+# summary(model4)
 ```
 
 Exclude 'reason'.
 
 ```{r}
 model5 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus + Medu + Fedu + Mjob + Fjob + nursery + guardian + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model5)
+# summary(model5)
 ```
 
 Exclude 'Medu'.
 
 ```{r}
 model6 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + Fjob + nursery + guardian + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model6)
+# summary(model6)
 ```
 
 Exclude 'guardian'.
 
 ```{r}
 model7 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + Fjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model7)
+# summary(model7)
 ```
 
 Exclude 'Fjob'.
 
 ```{r}
 model8 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + G + absences, data = alc, family = "binomial")
-summary(model8)
+# summary(model8)
 ```
 
 Exclude G. 
 ```{r}
 model9 <- glm(high_use ~ school + sex + age + address + famsize + Pstatus  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
-summary(model9)
+# summary(model9)
 ```
 
 Exclude P-status.
 
 ```{r}
 model10 <- glm(high_use ~ school + sex + age + address + famsize  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
-summary(model10)
+# summary(model10)
 ```
 
 Exclude 'school'.
 ```{r}
 model11 <- glm(high_use ~ sex + age + address + famsize  + Fedu + Mjob + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
-summary(model11)
+# summary(model11)
 ```
 
 Exclude 'Mjob'.
 ```{r}
 model12 <- glm(high_use ~ sex + age + address + famsize  + Fedu + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
-summary(model12)
+# summary(model12)
 ```
 
 Exclude 'age'.
 
 ```{r}
 model13 <- glm(high_use ~ sex + address + famsize  + Fedu + nursery + traveltime + studytime + failures + famsup + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
-summary(model13)
+# summary(model13)
 ```
 
 Exclude 'famsup'.
 ```{r}
 model14 <- glm(high_use ~ sex + address + famsize  + Fedu + nursery + traveltime + studytime + failures + paid + activities + romantic + famrel + freetime + goout + health + absences, data = alc, family = "binomial")
-summary(model14)
+# summary(model14)
 ```
 
 Exclude 'freetime'.
 
 ```{r}
 model15 <- glm(high_use ~ sex + address + famsize  + Fedu + nursery + traveltime + studytime + failures + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
-summary(model15)
+# summary(model15)
 ```
 
 Exclude 'Fedu'.
 
 ```{r}
 model16 <- glm(high_use ~ sex + address + famsize + nursery + traveltime + studytime + failures + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
-summary(model16)
+# summary(model16)
 ```
 
 Exclude 'failures'.
 
 ```{r}
 model17 <- glm(high_use ~ sex + address + famsize + nursery + traveltime + studytime + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
-summary(model17)
+# summary(model17)
 ```
 
 Exclude 'famsize'.
 
 ```{r}
 model18 <- glm(high_use ~ sex + address + nursery + traveltime + studytime + paid + activities + romantic + famrel + goout + health + absences, data = alc, family = "binomial")
-summary(model18)
+# summary(model18)
 ```
 
 Exclude 'romantic'.
 ```{r}
 model18 <- glm(high_use ~ sex + address + nursery + traveltime + studytime + paid + activities + famrel + goout + health + absences, data = alc, family = "binomial")
-summary(model18)
+# summary(model18)
 ```
 
 Exclude 'nursery'.
 ```{r}
 model19 <- glm(high_use ~ sex + address + traveltime + studytime + paid + activities + famrel + goout + health + absences, data = alc, family = "binomial")
-summary(model19)
+# summary(model19)
 ```
 Exclude 'traveltime'.
 ```{r}
 model20 <- glm(high_use ~ sex + address + studytime + paid + activities + famrel + goout + health + absences, data = alc, family = "binomial")
-summary(model20)
+# summary(model20)
 ```
 
 Exclude 'health'.
 ```{r}
 model21 <- glm(high_use ~ sex + address + studytime + paid + activities + famrel + goout + absences, data = alc, family = "binomial")
-summary(model21)
+# summary(model21)
 ```
 Now all the variables in my model are statistically significant. 
 Let's calculate test errors using cross validation.

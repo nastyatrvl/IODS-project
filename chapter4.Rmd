@@ -1,0 +1,260 @@
+---
+output: html_document
+---
+# Clustering and classification
+## Data description
+For this week analysis I use Boston dataset from the MASS package. It contains housing values in suburbs of Boston and consists of 506 observations of the following 14 variables:
+
+1. **crim** -- per capita crime rate by town
+2. **zn** -- proportion of residential land zoned for lots over 25,000 sq.ft.
+3. **indus** -- proportion of non-retail business acres per town
+4. **chas** -- Charles River dummy variable (= 1 if tract bounds river; 0 otherwise)
+5. **nox** -- nitrogen oxides concentration (parts per 10 million)
+6. **rm** -- average number of rooms per dwelling
+7. **age** -- proportion of owner-occupied units built prior to 1940
+8. **dis** -- weighted mean of distances to five Boston employment centres
+9. **rad** -- index of accessibility to radial highways 
+10. **tax** -- full-value property-tax rate per \$10,000
+11. **ptratio** -- pupil-teacher ratio by town
+12. **black** -- 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town
+13. **lstat** -- lower status of the population (percent)
+14. **medv** -- median value of owner-occupied homes in \$1000s
+
+## Exploratory analysis
+First, let's explore the dataset a bit:
+```{r}
+library(MASS)
+data("Boston")
+str(Boston)
+dim(Boston)
+```
+
+Let's have a closer look at variables and their distributions.
+```{r, echo=FALSE}
+library(GGally)
+summary(Boston)
+ggpairs(Boston[0:5])
+ggpairs(Boston[5:9])
+ggpairs(Boston[9:14])
+```
+
+We can check relationship between variables using a separate correlation plot:
+```{r, echo=FALSE}
+library(tidyverse)
+library(corrplot)
+cor_matrix<-cor(Boston) 
+cor_matrix %>% round(digits=2)
+corrplot(cor_matrix, method="circle", type = "upper", cl.pos = "b", tl.pos = "d", tl.cex = 0.6)
+```
+
+The highest correlations are observed between:
+
+* proportion of non-retail business acres (**indus**) and distances to Boston employment centresdis (**dis**) are strongly negatively correlated: **-0.71**
+* nitrogen oxides concentration (**nox**) and distances to Boston employment centresdis (**dis**) are strongly negatively correlated: **-0.77**
+* proportion of owner-occupied units built prior to 1940 (**age**) and distances to Boston employment centresdis (**dis**) are strongly negatively correlated: **-0.75**
+* lower status of the population (**lstat**) and median value of owner-occupied homes (**medv**) are strongly negatively correlated: **-0.74**
+* index of accessibility to radial highways (**rad**) and full-value property-tax rate (**tax**) are strongly positively correlated: **0.91**
+* index of accessibility to radial highways (**rad**) and full-value property-tax rate (**tax**) are strongly positively correlated: **0.91**
+* proportion of non-retail business acres (**indus**) and nitrogen oxides concentration (**nox**) are strongly positively correlated: **0.76**
+* proportion of non-retail business acres (**indus**) and full-value property-tax rate (**tax**) are strongly positively correlated: **0.72**
+* nitrogen oxides concentration (**nox**) and proportion of owner-occupied units built prior to 1940 (**age**) are strongly positively correlated: **0.73**
+* owner-occupied homes (**medv**) and average number of rooms per dwelling (**rm**) are strongly positively correlated: **0.70**
+
+## Data wrangling
+Since my variables are measured on different scales, for further analysis I have to scale the data, subtracting the column means from the corresponding columns and dividing the difference with standard deviation.  
+
+```{r}
+boston_scaled <- scale(Boston)
+summary(boston_scaled)
+boston_scaled <- as.data.frame(boston_scaled)
+```
+
+As it can be seen, all the variables' **means are zeros** now after scaling. 
+
+I also create a factor variable for numerical crim, categorizing it into high, low and middle rates of crime.
+
+```{r}
+bins <- quantile(boston_scaled$crim)
+crime <- cut(boston_scaled$crim, breaks = bins, include.lowest = TRUE, label = c("low", "med_low", "med_high", "high"))
+table(crime)
+```
+
+I remove the initial variable crim and add the new categorical one.
+
+```{r}
+boston_scaled <- dplyr::select(boston_scaled, -crim)
+boston_scaled <- data.frame(boston_scaled, crime)
+```
+
+I split my data into test (20\%) and train  (80\%) sets in order to assess the model's (which I'm going to build) quality. The training of the model will be done with the train set and prediction on new data is done with the test set. 
+
+```{r}
+n <- nrow(boston_scaled)
+set.seed(12345)
+ind <- sample(n,  size = n * 0.8)
+train <- boston_scaled[ind,]
+test <- boston_scaled[-ind,]
+```
+
+## Linear discriminant analysis (LDA)
+
+```{r}
+lda_model <- lda(crime~., data=train)
+lda_model
+```
+Prior probabilities are just equal proportions of four groups (1/4). Coefficients mean that the first discriminant function (LD1) is a linear combination of the variables: $0.065∗zn+0.065∗indus⋯+0.22∗medv$.
+Proportion of trace is the between group variance. Linear discriminant 1 explains almost 95\% of between group variance. 
+
+Let's draw the LDA biplot:
+
+
+```{r, echo=FALSE}
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+classes <- as.numeric(train$crime)
+plot(lda_model, dimen = 2, col = classes, pch = classes)
+lda.arrows(lda_model, myscale = 2.5)
+```
+
+
+The most influential linear separators for the clusters are rad, zn and nox.
+I save the correct classes from the test data set, and then remove them from the data frame itself, since I'm going to test my model on it. So this information about correct classification must not be there. 
+```{r}
+correct_classes <- test$crime
+test <- dplyr::select(test, -crime)
+```
+
+Now I will make predictions based on a model:
+```{r}
+lda.pred <- predict(lda_model, newdata = test)
+```
+
+And check the quality of prediction with cross-tabulation:
+```{r}
+table(correct = correct_classes, predicted = lda.pred$class)
+```
+It can be seen that the model successfully predicts low and high, but fails with middle rates of crime, since they are probably less separable from each other. It also can be clearly visible from the biplot, that green (med_high) and red (med_low) severely clash. 
+
+## k-means
+```{r}
+boston_scaled2 <- scale(Boston)
+boston_scaled2 <- as.data.frame(boston_scaled2)
+```
+
+For calculating between the observations I will use the most common Euclidean method. 
+
+```{r}
+dist_eu <- dist(boston_scaled2, method = "euclidean")
+summary(dist_eu)
+```
+
+Now I implement k-means algorithm. To determine the optimal number of clusters let's look at the total of within cluster sum of squares (WCSS) The optimal number of clusters is when the total WCSS drops radically, thus it is 2.
+```{r}
+set.seed(123)
+# max number of clusters
+k_max <- 10
+# the total within sum of squares
+twcss <- sapply(1:k_max, function(k){kmeans(boston_scaled2, k)$tot.withinss})
+qplot(x = 1:k_max, y = twcss, geom = 'line')
+km <- kmeans(boston_scaled2, centers = 2)
+```
+
+
+```{r, echo=FALSE}
+library(GGally)
+ggpairs(boston_scaled2[0:5], aes(color = as.factor(km$cluster)))
+ggpairs(boston_scaled2[5:9], aes(color = as.factor(km$cluster)))
+ggpairs(boston_scaled2[9:14], aes(color = as.factor(km$cluster)))
+```
+
+Looking at the plot we can see, that in many variables classes are separable indeed, especially when looking at distributions and correlation coefficients (which vary for two classes). Among the most visible and distinguishable differences between classes are:
+
+* indus
+* nox
+* age 
+* dis
+* rad
+* tax
+* ptratio
+
+## Bonus
+Let's perform k-means with 2 clusters.
+```{r}
+km_new <- kmeans(boston_scaled2, centers = 3)
+```
+
+I perform LDA using the clusters as target classes.
+```{r}
+new_data <- dplyr::select(boston_scaled2, -crim)
+new_data <- data.frame(new_data, km_new$cluster)
+set.seed(12345)
+train_new <- new_data[ind,]
+test_new <- new_data[-ind,]
+lda_model_new <- lda(km_new.cluster~., data=train_new)
+lda_model_new
+```
+Coefficients mean that the first discriminant function (LD1) is a linear combination of the variables: $0.043∗zn-0.27∗indus⋯+0.004∗medv$ etc.
+Let's plot:
+
+
+```{r}
+classes_new <- as.numeric(train_new$km_new.cluster)
+plot(lda_model_new, dimen = 2, col = classes_new, pch = classes_new)
+lda.arrows(lda_model_new, myscale = 1)
+```
+
+
+This time the most influential linear separators for the clusters are rad, age and zn.
+
+```{r}
+correct_classes_new <- test_new$km_new.cluster
+test_new <- dplyr::select(test_new, -km_new.cluster)
+```
+## Super bonus
+```{r}
+model_predictors <- dplyr::select(train, -crime)
+# check the dimensions
+dim(model_predictors)
+dim(lda_model$scaling)
+# matrix multiplication
+matrix_product <- as.matrix(model_predictors) %*% lda_model$scaling
+matrix_product <- as.data.frame(matrix_product)
+```
+
+Plotly graph:
+```{r, echo=FALSE}
+library(plotly)
+plot_ly(x = matrix_product$LD1, y = matrix_product$LD2, z = matrix_product$LD3, type= 'scatter3d', mode='markers', color = train$crime)
+```
+
+
+```{r}
+km_cluster <- as.data.frame(km$cluster)
+km_set <- km_cluster[ind,]
+```
+
+
+```{r, echo=FALSE}
+plot_ly(x = matrix_product$LD1, y = matrix_product$LD2, z = matrix_product$LD3, type= 'scatter3d', mode='markers', color = km_set)
+```
+
+Firstly, the number of groups is different, since for k-means I set two clusters only. But what we can see is that one cluster distinguishes a lot, and the rest of observations are less separable.
+
+
+
+
+
+
+
+
+
+
+
+
+
