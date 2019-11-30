@@ -54,6 +54,8 @@ human <- dplyr::select(human, -country)
 
 ## Exploratory analysis
 Let's first visualize 'human' and check correlations.
+
+
 ```{r,echo=FALSE}
 library(GGally)
 library(corrplot)
