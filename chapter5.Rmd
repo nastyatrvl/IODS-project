@@ -1,0 +1,178 @@
+---
+output: html_document
+---
+# Dimensionality reduction techniques
+**Note, that I put data wrangling in Rmarkdown file not by mistake. I just think that data aggregation process in this assignment is quite complicated, and since we assume the reader has no previous knowledge of it, I want to make it clearer and display here.** 
+```{r, echo=FALSE}
+knitr::asis_output("\U1F607   \U1F913")
+```
+
+## Data description
+This week I use 'human' data which describes the development of countries taking people's capabilities and gender inequality into account. 
+Variables description:
+
+* **hdi_rank** -- country rank according to **hdi**
+* **country** -- country name
+* **life_exp** -- life expectancy at birth
+* **exp_edu** -- expected years of schooling for children of school entering age
+* **mean_edu** -- mean of years of schooling for adults aged 25 years and more 
+* **gni** -- gross national income per capita
+* **hdi** -- The Human Development Index, a summary measure of average achievement in key dimensions of human development: a long and healthy life, being knowledgeable and have a decent standard of living (the geometric mean of normalized indices for each of the three dimensions)
+* **gii_rank** -- country rank according to **gii**
+* **gii** -- The Gender Inequality Index, a summary measure of reproductive health, empowerment and labour market characteristics (the geometric mean of normalized indices for each of the three dimensions)
+* **mm_ratio** -- maternal mortality ratio
+* **adol_birth** -- adolescent birth rates
+* **parliament** -- proportion of parliamentary seats occupied by females
+* **edu_fem** -- proportion of adult females aged 25 years and older with at least some secondary education
+* **edu_m** -- proportion of adult males aged 25 years and older with at least some secondary education
+* **labour_fem** -- labour force participation rate of female population aged 15 years and older
+* **labour_m** -- labour force participation rate of male population aged 15 years and older
+* **edu_ratio** -- **edu_fem** and **edu_m** ratio 
+* **labour_ratio** -- **labour_fem** and **labour_m** ratio
+
+Here's the illustration:
+![](/Users/anastasia/hdi.png)
+![](/Users/anastasia/gii.png)
+
+Now we transform the data a bit:
+
+```{r}
+human <- read.csv("~/IODS-project/data/human.csv")
+# transform gni to numeric
+human$gni <- as.numeric(human$gni)
+# exclude unneeded variables
+hvars <- names(human) %in% c("country", "edu_ratio", "labour_ratio", "exp_edu", "life_exp", "gni", "mm_ratio", "adol_birth", "parliament")
+human <- human[hvars]
+human <- na.omit(human)
+# removimg last 6 observations which relate to regions instead of countries (World, Sub-Saharan Africa, South Asia, Latin America and the Caribbean, Europe and Central Asia, East Asia and the Pacific)
+last <- nrow(human) - 7
+human <- human[1:last, ]
+# adding countries as rownames
+rownames(human) <- human$country
+human <- dplyr::select(human, -country)
+```
+
+## Exploratory analysis
+Let's first visualize 'human' and check correlations.
+```{r,echo=FALSE}
+library(GGally)
+library(corrplot)
+library(dplyr)
+ggpairs(human)
+cor(human) %>% round(2)
+cor(human) %>% corrplot(method="circle", type = "upper", cl.pos = "b", tl.pos = "d", tl.cex = 0.6)
+```
+
+
+
+We can see that the highest correlations are observed between:
+
+* life expectancy at birth and maternal mortality ratio: **-0.86**
+* life expectancy at birth and expected years of education: **0.79**
+* maternal mortality ratio and adolescent birth rates: **0.76**
+* expected years of education and maternal mortality ratio: **-0.74**
+* life expectancy at birth and adolescent birth rates: **-0.73**
+* expected years of education and adolescent birth rates: **-0.7**
+
+Most of the distributions are skewed, only expected years of education variable is close to normal distribution.
+
+
+## Principal component analysis (PCA)
+
+Let's perform PCA and visualize components.
+```{r}
+# performing principal component analysis (with the SVD method)
+pca_human <- prcomp(human)
+# drawing a biplot of the principal component representation and the original variables
+pca_human
+biplot(pca_human, choices = 1:2, cex = c(0.8, 0.8), col = c("grey40", "deeppink2"))
+```
+
+
+
+Hardly any inferences can be made out of this mess. Let's scale data.
+```{r}
+# scaling the variables
+human_std <- scale(human)
+summary(human_std)
+```
+After scaling all the variables' **means are zeros**. 
+
+Now, let's perform PCA on standardized data and visualize components. 
+```{r}
+# performing principal component analysis (with the SVD method)
+pca_human_st <- prcomp(human_std)
+pca_human_st
+# drawing a biplot of the principal component representation and the original variables
+biplot(pca_human_st, choices = 1:2, cex = c(0.5, 0.5), col = c("grey40", "deeppink2"))
+```
+
+Arrows visualize the relationship between the original features and principal components. We now discuss both graphs.
+
+
+1. **Gross national income** is nearly orthogonal with other variables, which indicates it's not really correlated with any of them. **maternal mortality ratio and adolescent birth rates** are pointing the same direction: they are highly positively correlated. At the same time they are highly negatively correlated with the rest of analyzed variables. maternal mortality ratio has the highest standard deviation (long arrow). **adolescent birth rates, maternal mortality ratio, female/male labour market participation ratio** contribute to the **first principal component (PC1)**, whereas **life expectancy, gross national income, expected years of schooling, proportion of parliamentary seats occupied by females, female/male mean years of education** contribute to the **second principal component (PC2)**. (can be seen from PCA result table)
+2. We can see that **life expectancy, female/male mean years of education, expected years of schooling** are highly positively correlated (small angles between the arrows), same for **adolescent birth rates and maternal mortality ratio**. proportion of parliamentary seats occupied by females and female/male labour market participation ratio are also positively correlated with each other. Gross national income has the smallest standard deviation out of all (short arrow). Contributions are still the same, although their weights are now different. **adolescent birth rates and maternal mortality ratio** bring the most into PC1, **life expectancy and expected years of schooling** bring the most into PC2.
+
+So, the results are different as a consequence of unscaled data measured on different scales. When we standardize it, we bring their standard deviations on the same scale, and get **different numerical result** that is more accurate. I highlighted **numerical**, since formation of components is, in fact, the same. 
+
+**Main insights from my perspective**
+We can conclude that gross national income has little to do with essential health variables such as maternal mortality ratio, adolescent birth rates and life expectancy. Our first principal component clearly distinguishes low-developed countries by adolescent birth rates and maternal mortality ratio (on the graph we can see Mozambique, Rwanda, Tanzania, Sierra Leone etc.). In those countries both maternal mortality ratios  and adolescent birth rates are usually high. Our second component then gathers the rest of the countries, more developed ones.
+
+## Multiple Correspondence Analysis
+Multiple Correspondence Analysis (MCA) is a method to analyze qualitative data. It can be used to detect patterns or structure in the data as well as in dimension reduction.
+
+
+Let's download the dataset about tea consumption.
+```{r}
+library(FactoMineR)
+data(tea)
+keep_columns <- c("Tea", "How", "how", "sugar", "where", "lunch")
+# new dataset with selected columns
+tea_time <- select(tea, one_of(keep_columns))
+```
+
+Let's check summaries and structure:
+```{r}
+summary(tea_time)
+str(tea_time)
+```
+
+Now I visualize the dataset:
+```{r, echo=FALSE}
+library(ggplot2)
+library(tidyr)
+gather(tea_time) %>% ggplot(aes(value)) + facet_wrap("key", scales = "free") + geom_bar() + theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+```
+
+Performing MCA:
+```{r}
+mca <- MCA(tea_time, graph = FALSE)
+summary(mca)
+```
+From the last table we can see that variables 'how' and 'where' are highly correlated with the 1st dimension. They are also correlated with the 2d dimension. 
+
+
+And visualize MCA by categories:
+
+
+
+```{r, echo=FALSE}
+plot(mca, invisible=c("ind"), habillage = "quali")
+```
+
+
+
+by individuals:
+
+
+
+```{r, echo=FALSE}
+plot(mca, invisible=c("var"), habillage = "quali")
+```
+
+
+
+From the factor map with 2 dimensions we can see that 'how' and 'where' are two the most similar categories. There is a clear pattern that people who buy tea in chain stores drink tea bags; those who buy in tea shops - unpacked; and those who buy tea either in chain stores or in tea shops (surprise surprise) - both tea bags and unpacked. Also we can notice that people drink green tea just alone, and add milk and lemon primarily in black tea.
+
+Dimension 1 explains 15\% of variance, and dimension 2 - 14\%.
+
