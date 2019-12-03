@@ -1,2 +1,2 @@
 # IODS-project
-Template for the IODS course
+Learning diary for the IODS course (University of Heldinki).
