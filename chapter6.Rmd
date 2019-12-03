@@ -1,0 +1,225 @@
+---
+output: html_document
+---
+# Analysis of longitudinal data
+## Data description 
+For this week assignment I use two datasets:
+
+1. BPRS - Brief Psychiatric Rating Scale Measurements from 40 Subjects
+2. RATS - Body Weights of Rats Recorded Over a 9-Week Period
+
+
+## Chapter 8 of MABS using the RATS 
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+RATS <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/MABS/master/Examples/data/rats.txt", 
+                   sep  ="", header = T)
+RATS$ID <- factor(RATS$ID)
+RATS$Group <- factor(RATS$Group)
+RATSL <- read.csv("~/IODS-project/data/RATSL.csv")
+RATSL$ID <- factor(RATSL$ID)
+RATSL$Group <- factor(RATSL$Group)
+```
+
+```{r}
+p1 <- ggplot(RATSL, aes(x = time, y = rats, linetype = ID))
+p2 <- p1 + geom_line() + scale_linetype_manual(values = rep(1:10, times=4))
+p3 <- p2 + facet_grid(. ~ Group, labeller = label_both)
+p4 <- p3 + theme_bw() + theme(legend.position = "none")
+p5 <- p4 + theme(panel.grid.minor.y = element_blank())
+p6 <- p5 + scale_y_continuous(limits = c(min(RATSL$rats), max(RATSL$rats)))
+p6
+```
+
+```{r}
+# Standardise the scores:
+RATSL <- RATSL %>%
+  group_by(time) %>%
+  mutate(stdrats = (rats - mean(rats))/sd(rats) ) %>%
+  ungroup()
+glimpse(RATSL)
+```
+
+
+```{r}
+p1 <- ggplot(RATSL, aes(x = time, y = stdrats, linetype = ID))
+p2 <- p1 + geom_line() + scale_linetype_manual(values = rep(1:10, times=4))
+p3 <- p2 + facet_grid(. ~ Group, labeller = label_both)
+p4 <- p3 + theme_bw() + theme(legend.position = "none")
+p5 <- p4 + theme(panel.grid.minor.y = element_blank())
+p6 <- p5 + scale_y_continuous(name = "standardized rats")
+p6
+```
+
+```{r}
+# Number of times, baseline (time 1) included:
+n <- RATSL$time %>% unique() %>% length()
+```
+
+```{r}
+# Make a summary data:
+RATSS <- RATSL %>%
+  group_by(Group, time) %>%
+  summarise(mean=mean(rats), se=sd(rats)/sqrt(n) ) %>%
+  ungroup()
+glimpse(RATSS)
+```
+
+```{r}
+p1 <- ggplot(RATSS, aes(x = time, y = mean, linetype = Group, shape = Group))
+p2 <- p1 + geom_line() + scale_linetype_manual(values = c(1,2,3))
+p3 <- p2 + geom_point(size=3) + scale_shape_manual(values = c(1,2,3))
+p4 <- p3 + geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1"), width=0.3)
+p5 <- p4 + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p6 <- p5 + scale_y_continuous(name = "mean(rats) +/- se(rats)")
+p6
+```
+
+```{r}
+p1 <- ggplot(RATSL, aes(x = factor(time), y = rats, fill = Group))
+p2 <- p1 + geom_boxplot(position = position_dodge(width = 0.9))
+p3 <- p2 + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p4 <- p3 + scale_x_discrete(name = "time")
+p4
+```
+
+```{r}
+RATS11S <- RATSL %>%
+  filter(time > 1) %>%
+  group_by(Group, ID) %>%
+  summarise(mean=mean(rats) ) %>%
+  ungroup()
+glimpse(RATS11S)
+```
+
+
+```{r}
+p1 <- ggplot(RATS11S, aes(x = Group, y = mean))
+p2 <- p1 + geom_boxplot()
+p3 <- p2 + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p4 <- p3 + stat_summary(fun.y = "mean", geom = "point", shape=23, size=4, fill = "white")
+p5 <- p4 + scale_y_continuous(name = "mean(rats), times 2-64")
+p5
+```
+
+```{r}
+RATS11S1 <- RATS11S %>%
+  filter(mean < 550)
+glimpse(RATS11S1)
+```
+
+```{r}
+p1 <- ggplot(RATS11S1, aes(x = Group, y = mean))
+p2 <- p1 + geom_boxplot()
+p3 <- p2 + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p4 <- p3 + stat_summary(fun.y = "mean", geom = "point", shape=23, size=4, fill = "white")
+p5 <- p4 + scale_y_continuous(name = "mean(rats), times 2-64")
+p5
+p4
+```
+
+```{r}
+# ANOVA instead of two-sided t-test
+summary(aov(mean ~ Group, data = RATS11S1))
+```
+
+
+```{r}
+# Add the baseline from the original data as a new variable to the summary data:
+baseline <- RATS$WD1
+RATS11S2 <- RATS11S %>%
+  mutate(baseline)
+```
+
+```{r}
+# Fit the ANCOVA model and see the results:
+fit <- lm(mean ~ baseline + Group, data = RATS11S2)
+summary(fit)
+anova(fit)
+```
+
+
+## Chapter 9 of MABS using the BPRS
+```{r}
+BPRS <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/MABS/master/Examples/data/BPRS.txt", 
+                   sep  =" ", header = T)
+BPRS$treatment <- factor(BPRS$treatment)
+BPRS$subject <- factor(BPRS$subject)
+BPRSL <- read.csv("~/IODS-project/data/BPRSL.csv")
+BPRSL$treatment <- factor(BPRSL$treatment)
+BPRSL$subject <- factor(BPRSL$subject)
+```
+
+```{r}
+p1 <- ggplot(BPRSL, aes(x = week, y = bprs, group = subject))
+p2 <- p1 + geom_text(aes(label = treatment))
+p3 <- p2 + scale_x_continuous(name = "week", breaks = seq(0, 60, 10))
+p4 <- p3 + scale_y_continuous(name = "bprs")
+p5 <- p4 + theme_bw()
+p6 <- p5 + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p6
+```
+
+```{r}
+BPRS_reg <- lm(bprs~week+treatment, data=BPRSL)
+summary(BPRS_reg)
+```
+
+```{r}
+pairs(BPRS[, 3:11], cex = 0.7)
+```
+
+
+
+```{r}
+library("lme4")
+BPRS_ref <- lmer(bprs ~ week + treatment + (1 | subject), data = BPRSL, REML = FALSE)
+summary(BPRS_ref)
+```
+
+```{r}
+BPRS_ref1 <- lmer(bprs ~ week + treatment + (week | subject), data = BPRSL, REML = FALSE)
+summary(BPRS_ref1)
+```
+
+```{r}
+anova(BPRS_ref1, BPRS_ref)
+```
+
+
+```{r}
+BPRS_ref2 <- lmer(bprs ~ week * treatment + (week | subject), data = BPRSL, REML = FALSE)
+summary(BPRS_ref2)
+```
+
+```{r}
+anova(BPRS_ref1, BPRS_ref2)
+```
+
+```{r}
+Fitted <- fitted(BPRS_ref2)
+BPRSL <- BPRSL %>% mutate(Fitted)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
