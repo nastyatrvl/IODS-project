@@ -1,2 +1,2 @@
 # IODS-project
-Learning diary for the IODS course (University of Helsinki).
+Template for the IODS course
