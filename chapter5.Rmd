@@ -37,8 +37,11 @@ Here's the illustration:
 Now we transform the data a bit:
 
 ```{r}
+library(dplyr)
+library(stringr)
 human <- read.csv("~/IODS-project/data/human.csv")
 # transform gni to numeric
+human$gni <- str_replace(human$gni, pattern=",", replace ="") %>% as.numeric
 human$gni <- as.numeric(human$gni)
 # exclude unneeded variables
 hvars <- names(human) %in% c("country", "edu_ratio", "labour_ratio", "exp_edu", "life_exp", "gni", "mm_ratio", "adol_birth", "parliament")
@@ -112,8 +115,8 @@ biplot(pca_human_st, choices = 1:2, cex = c(0.5, 0.5), col = c("grey40", "deeppi
 Arrows visualize the relationship between the original features and principal components. We now discuss both graphs.
 
 
-1. **Gross national income** is nearly orthogonal with other variables, which indicates it's not really correlated with any of them. **maternal mortality ratio and adolescent birth rates** are pointing the same direction: they are highly positively correlated. At the same time they are highly negatively correlated with the rest of analyzed variables. maternal mortality ratio has the highest standard deviation (long arrow). **adolescent birth rates, maternal mortality ratio, female/male labour market participation ratio** contribute to the **first principal component (PC1)**, whereas **life expectancy, gross national income, expected years of schooling, proportion of parliamentary seats occupied by females, female/male mean years of education** contribute to the **second principal component (PC2)**. (can be seen from PCA result table)
-2. We can see that **life expectancy, female/male mean years of education, expected years of schooling** are highly positively correlated (small angles between the arrows), same for **adolescent birth rates and maternal mortality ratio**. proportion of parliamentary seats occupied by females and female/male labour market participation ratio are also positively correlated with each other. Gross national income has the smallest standard deviation out of all (short arrow). Contributions are still the same, although their weights are now different. **adolescent birth rates and maternal mortality ratio** bring the most into PC1, **life expectancy and expected years of schooling** bring the most into PC2.
+1. **maternal mortality ratio and adolescent birth rates** are pointing the same direction: they are highly positively correlated. At the same time they are highly negatively correlated with the rest of analyzed variables. gross national income has the highest standard deviation (long arrow). **adolescent birth rates, maternal mortality ratio, female/male labour market participation ratio** contribute to the **first principal component (PC1)**, whereas **life expectancy, gross national income, expected years of schooling, proportion of parliamentary seats occupied by females, female/male mean years of education** contribute to the **second principal component (PC2)**. (can be seen from PCA result table)
+2. We can see that **life expectancy, female/male mean years of education, expected years of schooling and gross national income** are highly positively correlated (small angles between the arrows), same for **adolescent birth rates and maternal mortality ratio**. proportion of parliamentary seats occupied by females and female/male labour market participation ratio are also positively correlated with each other. Gross national income and expected years of schooling have the smallest standard deviations out of all (short arrows). Contributions are still the same, although their weights are now different. **adolescent birth rates and maternal mortality ratio** bring the most into PC1, **life expectancy and expected years of schooling** bring the most into PC2.
 
 So, the results are different as a consequence of unscaled data measured on different scales. When we standardize it, we bring their standard deviations on the same scale, and get **different numerical result** that is more accurate. I highlighted **numerical**, since formation of components is, in fact, the same. 
 
